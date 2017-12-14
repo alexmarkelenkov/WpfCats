@@ -5,8 +5,13 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfCats"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
+        Title="MainWindow" Height="507.035" Width="525">
     <Grid>
-        
+        <Button Click="button_Click" x:Name="button" Content="Button" HorizontalAlignment="Left" Margin="32,14,0,0" VerticalAlignment="Top" Width="75"/>
+        <ScrollViewer Name="scrollViewer"  CanContentScroll="True" VerticalScrollBarVisibility="Visible" HorizontalAlignment="Left" Height="398" Margin="65,49,0,0" VerticalAlignment="Top" Width="352">
+            <StackPanel Name="stackPanel" Height="351" Width="100"/>
+
+        </ScrollViewer>
+
     </Grid>
 </Window>
