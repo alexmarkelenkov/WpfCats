@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,8 +26,10 @@ namespace WpfCats
     public partial class MainWindow : Window
     {
         private static Dictionary<string, OpenCvSharp.Rect[]> catDictionary = new Dictionary<string, OpenCvSharp.Rect[]>();
+        private static Dictionary<string, int> rusPlateNumbers = new Dictionary<string, int>();
         private static IEnumerable<string> uris;
         private static int N = 50;
+        private static double percent = 0.0;
 
         public MainWindow()
         {
@@ -41,30 +44,40 @@ namespace WpfCats
             var document = await BrowsingContext.New(config).OpenAsync(address);
             var imgSelector = CatServer.Selectors[address];
             uris = document.QuerySelectorAll(imgSelector).Select(item => item.GetAttribute("src")).Take(N).ToList();
-
         }
 
-        static async Task GetImageAsync(string uri, string filename)
+        static async Task GetImageAsync(string uri, string filename, IProgress<double> progress, CancellationToken token)
         {
-            WebClient webClient = new WebClient();
-            try
+
+            if (token.IsCancellationRequested == false)
             {
-                await webClient.DownloadFileTaskAsync(uri, filename);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
+                WebClient webClient = new WebClient();
+                try
+                {
+                    token.ThrowIfCancellationRequested();
+                    await webClient.DownloadFileTaskAsync(uri, filename);                    
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+
+                if (token.IsCancellationRequested == false)
+                {
+                    progress.Report(100 * percent / uris.Count());
+                    percent++;  
+                }
             }
         }
 
-        public void DetectCat(FileInfo f)
+        private void DetectCat(FileInfo f)
         {
             OpenCvSharp.CascadeClassifier cc = new OpenCvSharp.CascadeClassifier("haarcascade_frontalcatface.xml");
             var img = new OpenCvSharp.Mat(f.FullName);
             var img2 = new OpenCvSharp.Mat();
             img.ConvertTo(img2, OpenCvSharp.MatType.CV_8U);
             var cats = cc.DetectMultiScale(img2);
-            Console.WriteLine(cats.Length);
+            //Console.WriteLine(cats.Length);
             if(cats.Length > 0)
             {
                 catDictionary.Add(f.FullName, cats);
@@ -72,8 +85,33 @@ namespace WpfCats
            
         }
 
+        private void DetectRussianPlateNumber(FileInfo f)
+        {
+            try
+            {
+                OpenCvSharp.CascadeClassifier cc = new OpenCvSharp.CascadeClassifier("haarcascade_russian_plate_number.xml");
+                var img = new OpenCvSharp.Mat(f.FullName);
+                var img2 = new OpenCvSharp.Mat();
+                img.ConvertTo(img2, OpenCvSharp.MatType.CV_8U);
+                var plateNumbers = cc.DetectMultiScale(img2);
+                Console.WriteLine(plateNumbers.Length);
+                if (plateNumbers.Length > 0)
+                {
+                    rusPlateNumbers.Add(f.FullName, plateNumbers.Length);
+                }
+            }
+            catch (Exception e)
+            {
+
+                Console.WriteLine(e.Message);
+            }
+        }
+        
+
         private async void button_Click(object sender, RoutedEventArgs e)
         {
+            button.IsEnabled = false;
+
             await ProcessImagesAsync();
 
             try
@@ -81,6 +119,15 @@ namespace WpfCats
                 int i = 0;
                 List<Task> imageSaveTasks = new List<Task>();
                 Task t;
+
+                CancellationTokenSource cts = new CancellationTokenSource();
+                button1.Click += delegate { 
+                    if (button.IsEnabled == false)
+                    {
+                        button1.IsEnabled = false;
+                        cts.Cancel();
+                    }
+                };
 
                 var sw = new Stopwatch();
                 sw.Start();
@@ -91,10 +138,18 @@ namespace WpfCats
                     //WebClient webClient = new WebClient();
                     //webClient.DownloadFile(uri, Directory.GetCurrentDirectory().ToString() + "\\img\\cat" + i.ToString() + ".jpg");                    
 
-                    t = GetImageAsync(uri, Directory.GetCurrentDirectory().ToString() + "\\img\\cat" + i.ToString() + ".jpg");
-                    imageSaveTasks.Add(t);
-
-                    i++;
+                    if (cts.Token.IsCancellationRequested == false)
+                    {
+                        t = GetImageAsync(uri,
+                                       Directory.GetCurrentDirectory().ToString() + "\\img\\cat" + i.ToString() + ".jpg",
+                                       new Progress<double>(percent => progressBar.Value = percent), cts.Token);
+                        imageSaveTasks.Add(t);
+                        i++; 
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
                 await Task.WhenAll(imageSaveTasks);
                 sw.Stop();
@@ -108,9 +163,12 @@ namespace WpfCats
             
             DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\img");
             Parallel.ForEach(dir.GetFiles(), DetectCat);
+            Console.WriteLine("--------------------------------------------------------------------");
+            DirectoryInfo dir2 = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\reg");
+            Parallel.ForEach(dir2.GetFiles(), DetectRussianPlateNumber);
 
 
-            
+            List<Rectangle> rectangles = new List<Rectangle>();
             foreach (KeyValuePair<string, OpenCvSharp.Rect[]> t in catDictionary)
             {
                 
@@ -135,9 +193,9 @@ namespace WpfCats
                         Width = c.Width,
                         Height = c.Height
                     };
+                    rectangles.Add(r);
 
-                    stackPanel.Children.Add(r);
-                    
+
                     //canvas.Children.Add(r);
                     //Canvas.SetLeft(r, c.Left);
                     //Canvas.SetTop(r, c.Top);
@@ -146,8 +204,14 @@ namespace WpfCats
                 //stackPanel.Children.Add(canvas);
             }
 
+            foreach(Rectangle r in rectangles)
+            {
+                stackPanel.Children.Add(r);
+            }
+
             
 
         }
+        
     }
 }
