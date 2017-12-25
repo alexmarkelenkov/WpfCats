@@ -13,6 +13,8 @@
         <Button x:Name="button1" Content="Stop" HorizontalAlignment="Left" Margin="380,13,0,0" VerticalAlignment="Top" Width="75"/>
         <ListBox ItemsSource="{Binding Cats}" x:Name="listBox" HorizontalAlignment="Left" Height="150" Margin="44,102,0,0" VerticalAlignment="Top" Width="156"/>
         <ListBox ItemsSource="{Binding Plates}" x:Name="listBox1" HorizontalAlignment="Left" Height="165" Margin="38,280,0,0" VerticalAlignment="Top" Width="163"/>
+        <ListBox ItemsSource="{Binding CatsFromDB}" x:Name="listBox2" HorizontalAlignment="Left" Height="214" Margin="253,46,0,0" VerticalAlignment="Top" Width="241"/>
+        <ListBox ItemsSource="{Binding PlatesFromDB}"  x:Name="listBox3" HorizontalAlignment="Left" Height="207" Margin="252,266,0,0" VerticalAlignment="Top" Width="242"/>
 
     </Grid>
 </Window>

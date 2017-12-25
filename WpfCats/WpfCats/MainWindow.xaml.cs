@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data.Entity;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -27,7 +28,11 @@ namespace WpfCats
     public partial class MainWindow : Window
     {
         private static Dictionary<string, OpenCvSharp.Rect[]> catDictionary = new Dictionary<string, OpenCvSharp.Rect[]>();
+        private static Dictionary<string, int> catIntDictionary = new Dictionary<string, int>();
+        private static Dictionary<string, int> plateIntDictionary = new Dictionary<string, int>();
         private static Dictionary<string, int> rusPlateNumbers = new Dictionary<string, int>();
+        public List<string> CatsFromDB { get; set; } = new List<string>();
+        public List<string> PlatesFromDB { get; set; } = new List<string>();
         public List<string> Cats {
             get
             {
@@ -35,7 +40,7 @@ namespace WpfCats
             }
 
             private set { }
-        }        
+        }
         public List<string> Plates {
             get
             {
@@ -54,7 +59,8 @@ namespace WpfCats
         public MainWindow()
         {
             InitializeComponent();
-            DataContext = this;
+            DataContext = this; 
+
         }
 
 
@@ -102,11 +108,11 @@ namespace WpfCats
             if(catsCV.Length > 0)
             {
                 catDictionary.Add(f.FullName, catsCV);
+                catIntDictionary.Add(f.Name, catsCV.Length);
             }
-            cats.Add(f.Name + " : " + catsCV.Length.ToString());              
-            
+            cats.Add(f.Name + " : " + catsCV.Length.ToString());            
         }
-
+        
         private void DetectRussianPlateNumber(FileInfo f)
         {
             try
@@ -120,15 +126,79 @@ namespace WpfCats
                 if (plateNumbers.Length > 0)
                 {
                     rusPlateNumbers.Add(f.FullName, plateNumbers.Length);
+                    plateIntDictionary.Add(f.Name, plateNumbers.Length);
                 }
                 Plates.Add(f.Name + " : " + plateNumbers.Length.ToString());
+                //Console.WriteLine("7777");
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
             }
         }
-        
+
+        public async Task WriteCatsAsync(Dictionary<string, int> dict)
+        {
+
+            using (CVContext db = new CVContext())
+            {
+                foreach(KeyValuePair<string, int> item in dict)
+                {
+                    Cat cat = new Cat();
+                    cat.Path = item.Key;
+                    cat.Count = item.Value;
+                    db.Cats.Add(cat);
+                }
+                //Console.WriteLine("88888");
+                await db.SaveChangesAsync();
+            }
+        }
+
+        public async Task ReadCatsAsync()
+        {
+            using (CVContext db = new CVContext())
+            {
+                //Console.WriteLine("9999");
+                var cats = await (from c in db.Cats
+                                  select c).ToListAsync();
+                foreach(var c in cats)
+                {
+                    CatsFromDB.Add(c.Path + " : " + c.Count);
+                }
+            }
+        }
+
+        public async Task WritePlatesAsync(Dictionary<string, int> dict)
+        {
+
+            using (CVContext db = new CVContext())
+            {
+                foreach (KeyValuePair<string, int> item in dict)
+                {
+                    PlateNumber plateNumber = new PlateNumber();
+                    plateNumber.Path = item.Key;
+                    plateNumber.Count = item.Value;
+                    db.Plates.Add(plateNumber);
+                }
+                //Console.WriteLine("88888");
+                await db.SaveChangesAsync();
+            }
+        }
+
+        public async Task ReadPlatesAsync()
+        {
+            using (CVContext db = new CVContext())
+            {
+                //Console.WriteLine("9999");
+                var plates = await (from c in db.Plates
+                                  select c).ToListAsync();
+                foreach (var c in plates)
+                {
+                    PlatesFromDB.Add(c.Path + " : " + c.Count);
+                }
+            }
+        }
+
 
         private async void button_Click(object sender, RoutedEventArgs e)
         {
@@ -184,12 +254,20 @@ namespace WpfCats
 
             
             DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\img");
-            Parallel.ForEach(dir.GetFiles(), DetectCat);
-            
+            await Task.Run(() => Parallel.ForEach(dir.GetFiles(), DetectCat));
             
             Console.WriteLine("--------------------------------------------------------------------");
+
             DirectoryInfo dir2 = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\reg");
-            Parallel.ForEach(dir2.GetFiles(), DetectRussianPlateNumber);
+            await Task.Run(() => Parallel.ForEach(dir2.GetFiles(), DetectRussianPlateNumber));
+
+            
+
+            await WriteCatsAsync(catIntDictionary);
+            await ReadCatsAsync();
+            await WritePlatesAsync(plateIntDictionary);
+            await ReadPlatesAsync();
+
 
             this.DataContext = null;
             this.DataContext = this;
