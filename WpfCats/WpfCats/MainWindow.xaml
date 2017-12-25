@@ -8,12 +8,11 @@
         Title="MainWindow" Height="507.035" Width="525">
     <Grid>
         <Button Click="button_Click" x:Name="button" Content="Begin" HorizontalAlignment="Left" Margin="32,14,0,0" VerticalAlignment="Top" Width="75"/>
-        <ScrollViewer Name="scrollViewer"  CanContentScroll="True" VerticalScrollBarVisibility="Visible" HorizontalAlignment="Left" Height="398" Margin="65,49,0,0" VerticalAlignment="Top" Width="352">
-            <StackPanel Name="stackPanel" Height="351" Width="100"/>
 
-        </ScrollViewer>
         <ProgressBar Name="progressBar" HorizontalAlignment="Left" Height="10" Margin="190,20,0,0" VerticalAlignment="Top" Width="100"/>
         <Button x:Name="button1" Content="Stop" HorizontalAlignment="Left" Margin="380,13,0,0" VerticalAlignment="Top" Width="75"/>
+        <ListBox ItemsSource="{Binding Cats}" x:Name="listBox" HorizontalAlignment="Left" Height="150" Margin="44,102,0,0" VerticalAlignment="Top" Width="156"/>
+        <ListBox ItemsSource="{Binding Plates}" x:Name="listBox1" HorizontalAlignment="Left" Height="165" Margin="38,280,0,0" VerticalAlignment="Top" Width="163"/>
 
     </Grid>
 </Window>

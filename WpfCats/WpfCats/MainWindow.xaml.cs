@@ -1,6 +1,7 @@
 ﻿using AngleSharp;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -27,13 +28,33 @@ namespace WpfCats
     {
         private static Dictionary<string, OpenCvSharp.Rect[]> catDictionary = new Dictionary<string, OpenCvSharp.Rect[]>();
         private static Dictionary<string, int> rusPlateNumbers = new Dictionary<string, int>();
+        public List<string> Cats {
+            get
+            {
+                return cats;
+            }
+
+            private set { }
+        }        
+        public List<string> Plates {
+            get
+            {
+                return plates;
+            }
+            private set
+            {
+            }
+        }
         private static IEnumerable<string> uris;
-        private static int N = 50;
+        private static int N = 10;
         private static double percent = 0.0;
+        public List<string> cats = new List<string>();
+        public List<string> plates = new List<string>();
 
         public MainWindow()
         {
-            InitializeComponent();            
+            InitializeComponent();
+            DataContext = this;
         }
 
 
@@ -76,13 +97,14 @@ namespace WpfCats
             var img = new OpenCvSharp.Mat(f.FullName);
             var img2 = new OpenCvSharp.Mat();
             img.ConvertTo(img2, OpenCvSharp.MatType.CV_8U);
-            var cats = cc.DetectMultiScale(img2);
+            var catsCV = cc.DetectMultiScale(img2);
             //Console.WriteLine(cats.Length);
-            if(cats.Length > 0)
+            if(catsCV.Length > 0)
             {
-                catDictionary.Add(f.FullName, cats);
+                catDictionary.Add(f.FullName, catsCV);
             }
-           
+            cats.Add(f.Name + " : " + catsCV.Length.ToString());              
+            
         }
 
         private void DetectRussianPlateNumber(FileInfo f)
@@ -94,15 +116,15 @@ namespace WpfCats
                 var img2 = new OpenCvSharp.Mat();
                 img.ConvertTo(img2, OpenCvSharp.MatType.CV_8U);
                 var plateNumbers = cc.DetectMultiScale(img2);
-                Console.WriteLine(plateNumbers.Length);
+                //Console.WriteLine(plateNumbers.Length);
                 if (plateNumbers.Length > 0)
                 {
                     rusPlateNumbers.Add(f.FullName, plateNumbers.Length);
                 }
+                Plates.Add(f.Name + " : " + plateNumbers.Length.ToString());
             }
             catch (Exception e)
             {
-
                 Console.WriteLine(e.Message);
             }
         }
@@ -110,7 +132,7 @@ namespace WpfCats
 
         private async void button_Click(object sender, RoutedEventArgs e)
         {
-            button.IsEnabled = false;
+            button.IsEnabled = false;            
 
             await ProcessImagesAsync();
 
@@ -163,53 +185,52 @@ namespace WpfCats
             
             DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\img");
             Parallel.ForEach(dir.GetFiles(), DetectCat);
+            
+            
             Console.WriteLine("--------------------------------------------------------------------");
             DirectoryInfo dir2 = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\reg");
             Parallel.ForEach(dir2.GetFiles(), DetectRussianPlateNumber);
 
+            this.DataContext = null;
+            this.DataContext = this;
 
-            List<Rectangle> rectangles = new List<Rectangle>();
-            foreach (KeyValuePair<string, OpenCvSharp.Rect[]> t in catDictionary)
-            {
-                
-                Image image = new Image();
-                BitmapImage bm = new BitmapImage();
-                bm.BeginInit();
-                bm.UriSource = new Uri(t.Key, UriKind.RelativeOrAbsolute);
-                //ImageBrush imgBrush = new ImageBrush();
-                //imgBrush.ImageSource = bm;
-                bm.EndInit();
-                image.Source = bm;
-                //canvas.Children.Add(image);
-                stackPanel.Children.Add(image);
+            //List<Rectangle> rectangles = new List<Rectangle>();
+            //foreach (KeyValuePair<string, OpenCvSharp.Rect[]> t in catDictionary)
+            //{
+            //    Canvas cn = new Canvas();
+            //    Canvas canvas = new Canvas();
+            //    Image image = new Image();
+            //    BitmapImage bm = new BitmapImage();
+            //    bm.BeginInit();
+            //    bm.UriSource = new Uri(t.Key, UriKind.RelativeOrAbsolute);
+            //    //ImageBrush imgBrush = new ImageBrush();
+            //    //imgBrush.ImageSource = bm;
+            //    bm.EndInit();
+            //    image.Source = bm;
+            //    canvas.Children.Add(image);
+            //    //canvas.Background = imgBrush;
 
-                //Canvas canvas = new Canvas();
-                foreach (var c in t.Value)
-                {
-                    var r = new Rectangle
-                    {
-                        Stroke = Brushes.LightBlue,
-                        StrokeThickness = 2.0,
-                        Width = c.Width,
-                        Height = c.Height
-                    };
-                    rectangles.Add(r);
+            //    foreach (var c in t.Value)
+            //    {
+            //        var r = new Rectangle
+            //        {
+            //            Stroke = Brushes.LightBlue,
+            //            StrokeThickness = 2.0,
+            //            Width = c.Width,
+            //            Height = c.Height
+            //        };
+            //        rectangles.Add(r);
 
+            //        canvas.Children.Add(r);
+            //        Canvas.SetLeft(r, c.Left);
+            //        Canvas.SetTop(r, c.Top);                                       
+            //    }
 
-                    //canvas.Children.Add(r);
-                    //Canvas.SetLeft(r, c.Left);
-                    //Canvas.SetTop(r, c.Top);
-                }                
+            //    Canvas.SetTop(canvas, image.Height);
+            //    cn.Children.Add(canvas);
+            //    grid.Children.Add(cn);
+            //}            
 
-                //stackPanel.Children.Add(canvas);
-            }
-
-            foreach(Rectangle r in rectangles)
-            {
-                stackPanel.Children.Add(r);
-            }
-
-            
 
         }
         
